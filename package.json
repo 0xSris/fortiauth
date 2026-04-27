@@ -3,16 +3,18 @@
   "version": "1.0.0",
   "description": "Production-grade OS authentication security framework",
   "main": "server.js",
+  "engines": {
+    "node": ">=20 <23"
+  },
   "scripts": {
     "start": "node server.js",
+    "start:prod": "node --max-old-space-size=256 server.js",
     "dev": "nodemon server.js",
     "client:dev": "vite --host 127.0.0.1",
     "build": "vite build",
     "seed": "node seed.js"
   },
   "dependencies": {
-    "@types/react": "^18.3.28",
-    "@types/react-dom": "^18.3.7",
     "argon2": "^0.31.2",
     "better-sqlite3": "^9.4.3",
     "cors": "^2.8.5",
@@ -29,12 +31,14 @@
     "qrcode": "^1.5.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "typescript": "^5.9.3",
     "uuid": "^9.0.0"
   },
   "devDependencies": {
+    "@types/react": "^18.3.28",
+    "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^4.2.1",
     "nodemon": "^3.1.0",
+    "typescript": "^5.9.3",
     "vite": "^5.1.0"
   }
 }

@@ -72,17 +72,25 @@ function publicUser(user) {
 }
 
 function setRefreshCookie(res, token) {
+  const sameSite = String(process.env.REFRESH_COOKIE_SAMESITE || (process.env.NODE_ENV === 'production' ? 'none' : 'strict')).toLowerCase();
+  const secure = process.env.REFRESH_COOKIE_SECURE
+    ? process.env.REFRESH_COOKIE_SECURE === 'true'
+    : process.env.NODE_ENV === 'production' || sameSite === 'none';
   res.cookie('refreshToken', token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    secure,
+    sameSite,
     maxAge: refreshDays() * 86400 * 1000,
     path: '/api/auth'
   });
 }
 
 function clearRefreshCookie(res) {
-  res.clearCookie('refreshToken', { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict', path: '/api/auth' });
+  const sameSite = String(process.env.REFRESH_COOKIE_SAMESITE || (process.env.NODE_ENV === 'production' ? 'none' : 'strict')).toLowerCase();
+  const secure = process.env.REFRESH_COOKIE_SECURE
+    ? process.env.REFRESH_COOKIE_SECURE === 'true'
+    : process.env.NODE_ENV === 'production' || sameSite === 'none';
+  res.clearCookie('refreshToken', { httpOnly: true, secure, sameSite, path: '/api/auth' });
 }
 
 module.exports = { register, login, createSession, signAccessToken, verifyTempToken, publicUser, setRefreshCookie, clearRefreshCookie, now };

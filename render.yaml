@@ -1,0 +1,54 @@
+services:
+  - type: web
+    name: secureos-api
+    env: node
+    plan: free
+    buildCommand: npm ci --omit=dev
+    startCommand: npm run start:prod
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=256
+      - key: UV_THREADPOOL_SIZE
+        value: "2"
+      - key: DATABASE_PATH
+        value: /tmp/secureos-auth.db
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 15m
+      - key: REFRESH_TOKEN_EXPIRES_DAYS
+        value: "7"
+      - key: MFA_ENCRYPTION_KEY
+        generateValue: true
+      - key: ADMIN_SEED_KEY
+        generateValue: true
+      - key: FRONTEND_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: REFRESH_COOKIE_SAMESITE
+        value: none
+      - key: REFRESH_COOKIE_SECURE
+        value: "true"
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
+      - key: GROQ_MAX_COMPLETION_TOKENS
+        value: "4096"
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_SECURE
+        value: "false"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: SMTP_FROM
+        sync: false

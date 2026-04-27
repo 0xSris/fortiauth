@@ -78,6 +78,8 @@ type Incident = { id: number; type: string; title: string; severity: string; cou
 const fmt = (ts?: number) => (ts ? new Date(ts * 1000).toLocaleString() : 'never');
 const currentRoute = () => (window.location.pathname === '/' ? '/login' : window.location.pathname);
 const auditEvents = ['LOGIN_SUCCESS', 'LOGIN_FAILURE', 'LOGOUT', 'REGISTER', 'MFA_ENABLED', 'MFA_DISABLED', 'MFA_SUCCESS', 'MFA_FAILURE', 'PASSWORD_CHANGED', 'PASSWORD_RESET_REQUEST', 'PASSWORD_RESET_SUCCESS', 'ACCOUNT_LOCKED', 'ACCOUNT_UNLOCKED', 'PRIVILEGE_ESCALATION_ATTEMPT', 'ADMIN_ACTION', 'TOKEN_REFRESH', 'SESSION_REVOKED', 'INVALID_TOKEN_ATTEMPT'];
+const apiBaseUrl = String((import.meta as any).env?.VITE_API_BASE_URL || '').replace(/\/$/, '');
+const apiUrl = (path: string) => `${apiBaseUrl}${path}`;
 
 const API = {
   token: localStorage.getItem('accessToken') || '',
@@ -85,7 +87,7 @@ const API = {
   async request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) } as Record<string, string>;
     if (API.token) headers.Authorization = `Bearer ${API.token}`;
-    const response = await fetch(path, { credentials: 'include', ...options, headers });
+    const response = await fetch(apiUrl(path), { credentials: 'include', ...options, headers });
     const body = await response.json().catch(() => ({}));
     if (response.status === 401 && path !== '/api/auth/refresh') {
       const refreshed = await API.refresh();
@@ -96,7 +98,7 @@ const API = {
   },
   async refresh() {
     try {
-      const response = await fetch('/api/auth/refresh', { method: 'POST', credentials: 'include' });
+      const response = await fetch(apiUrl('/api/auth/refresh'), { method: 'POST', credentials: 'include' });
       if (!response.ok) throw new Error('refresh failed');
       const body = await response.json();
       API.setToken(body.accessToken);

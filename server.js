@@ -11,9 +11,18 @@ const { dbPath } = require('./db/database');
 const app = express();
 const port = Number(process.env.PORT || 3000);
 
+app.set('trust proxy', 1);
 securityMiddleware(app);
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: false, limit: '10kb' }));
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    ok: true,
+    service: 'secureos-auth-framework',
+    env: process.env.NODE_ENV || 'development',
+    uptime: Math.round(process.uptime())
+  });
+});
 app.use((req, res, next) => {
   req.cookies = String(req.headers.cookie || '').split(';').filter(Boolean).reduce((acc, part) => {
     const index = part.indexOf('=');
