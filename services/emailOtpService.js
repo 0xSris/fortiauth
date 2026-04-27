@@ -29,7 +29,7 @@ async function sendMail(to, subject, text) {
   return { sent: true };
 }
 
-async function createAndSendOtp(userId, purpose = 'email_verification') {
+async function createAndSendOtp(userId, purpose = 'email_verification', ttlMinutes) {
   const user = run((db) => db.prepare('SELECT id, email, username FROM users WHERE id = ?').get(userId), null);
   if (!user) {
     const error = new Error('User not found');
@@ -37,7 +37,7 @@ async function createAndSendOtp(userId, purpose = 'email_verification') {
     throw error;
   }
   const otp = generateOtp();
-  const ttl = Number(getPolicy().emailOtpTtlMinutes || 10);
+  const ttl = Number(ttlMinutes || getPolicy().emailOtpTtlMinutes || 10);
   run((db) => db.prepare('INSERT INTO email_otps (user_id, otp_hash, purpose, expires_at) VALUES (?, ?, ?, unixepoch() + ?)').run(userId, sha256(otp), purpose, ttl * 60), null);
   const delivery = await sendMail(
     user.email,

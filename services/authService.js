@@ -4,23 +4,31 @@ const { run } = require('../db/database');
 const { randomToken, sha256 } = require('../utils/crypto');
 const { hashPassword, verifyPassword, validatePassword } = require('./passwordService');
 const { audit } = require('./auditService');
+const { createAndSendOtp, verifyOtp } = require('./emailOtpService');
 
 const now = () => Math.floor(Date.now() / 1000);
 const refreshDays = () => Number(process.env.REFRESH_TOKEN_EXPIRES_DAYS || 7);
 const jwtSecret = () => process.env.JWT_SECRET || 'development-jwt-secret-change-me';
+const LOGIN_EMAIL_OTP_MINUTES = 2;
 
 function signAccessToken(userId, sessionId) {
   return jwt.sign({ userId, sessionId }, jwtSecret(), { expiresIn: process.env.JWT_EXPIRES_IN || '15m' });
 }
 
-function signTempToken(userId) {
-  return jwt.sign({ userId, purpose: 'mfa-login' }, jwtSecret(), { expiresIn: '5m' });
+function signTempToken(userId, purpose = 'mfa-login') {
+  return jwt.sign({ userId, purpose }, jwtSecret(), { expiresIn: '5m' });
 }
 
-function verifyTempToken(tempToken) {
+function verifyTempToken(tempToken, purpose = 'mfa-login') {
   const payload = jwt.verify(tempToken, jwtSecret());
-  if (payload.purpose !== 'mfa-login') throw new Error('Invalid temp token');
+  if (payload.purpose !== purpose) throw new Error('Invalid temp token');
   return payload.userId;
+}
+
+function maskEmail(email) {
+  const [name, domain] = String(email || '').split('@');
+  if (!name || !domain) return '';
+  return `${name.slice(0, 2)}${'*'.repeat(Math.max(2, name.length - 2))}@${domain}`;
 }
 
 function createSession(userId, req) {
@@ -59,12 +67,45 @@ async function login({ username, password }, req) {
     if (attempts >= 5) audit({ userId: user.id, eventType: 'ACCOUNT_LOCKED', req, metadata: { username } });
     return { status: attempts >= 5 ? 403 : 401, body: { error: attempts >= 5 ? 'Account locked. Contact admin.' : 'Invalid credentials', code: attempts >= 5 ? 'ACCOUNT_LOCKED' : 'INVALID_CREDENTIALS' } };
   }
+  const emailOtp = await createAndSendOtp(user.id, 'login_challenge', LOGIN_EMAIL_OTP_MINUTES);
+  if (!emailOtp.sent && process.env.NODE_ENV === 'production') {
+    return { status: 503, body: { error: 'Email OTP delivery is not configured', code: 'EMAIL_OTP_NOT_CONFIGURED' } };
+  }
+  audit({ userId: user.id, eventType: 'MFA_SUCCESS', req, metadata: { factor: 'email_otp_sent', purpose: 'login_challenge' } });
+  return {
+    status: 200,
+    body: {
+      requiresEmailOtp: true,
+      tempToken: signTempToken(user.id, 'email-login'),
+      email: maskEmail(user.email),
+      expiresInMinutes: LOGIN_EMAIL_OTP_MINUTES,
+      sent: emailOtp.sent,
+      developmentOtp: emailOtp.developmentOtp
+    }
+  };
+}
+
+function completeLogin(user, req) {
   const mfa = run((db) => db.prepare('SELECT is_enabled FROM mfa_configs WHERE user_id = ?').get(user.id), null);
   if (mfa && mfa.is_enabled) return { status: 200, body: { requiresMfa: true, tempToken: signTempToken(user.id) } };
   const session = createSession(user.id, req);
   run((db) => db.prepare('UPDATE users SET failed_attempts = 0, last_login = unixepoch(), updated_at = unixepoch() WHERE id = ?').run(user.id), null);
   audit({ userId: user.id, eventType: 'LOGIN_SUCCESS', req, metadata: { sessionId: session.sessionId } });
   return { status: 200, body: { accessToken: session.accessToken, user: publicUser(user), sessionId: session.sessionId }, refreshToken: session.refreshToken };
+}
+
+function emailOtpLogin({ tempToken, otp }, req) {
+  const userId = verifyTempToken(tempToken, 'email-login');
+  const user = run((db) => db.prepare('SELECT * FROM users WHERE id = ?').get(userId), null);
+  if (!user || user.is_locked) {
+    return { status: 403, body: { error: 'Account locked. Contact admin.', code: 'ACCOUNT_LOCKED' } };
+  }
+  if (!verifyOtp(userId, otp, 'login_challenge')) {
+    audit({ userId, eventType: 'MFA_FAILURE', req, metadata: { factor: 'email_otp', purpose: 'login_challenge' } });
+    return { status: 401, body: { error: 'Invalid or expired email OTP', code: 'INVALID_EMAIL_OTP' } };
+  }
+  audit({ userId, eventType: 'MFA_SUCCESS', req, metadata: { factor: 'email_otp', purpose: 'login_challenge' } });
+  return completeLogin(user, req);
 }
 
 function publicUser(user) {
@@ -93,4 +134,4 @@ function clearRefreshCookie(res) {
   res.clearCookie('refreshToken', { httpOnly: true, secure, sameSite, path: '/api/auth' });
 }
 
-module.exports = { register, login, createSession, signAccessToken, verifyTempToken, publicUser, setRefreshCookie, clearRefreshCookie, now };
+module.exports = { register, login, emailOtpLogin, createSession, signAccessToken, verifyTempToken, publicUser, setRefreshCookie, clearRefreshCookie, now };

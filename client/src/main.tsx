@@ -236,7 +236,10 @@ function AuthSurface({ mode, title, subtitle, children }: { mode: string; title:
 
 function Login({ nav, setUser, notify }: { nav: (path: string) => void; setUser: (user: User | null) => void; notify: (message: string) => void }) {
   const [tempToken, setTempToken] = useState('');
+  const [stage, setStage] = useState<'password' | 'email' | 'totp'>('password');
   const [mfaCode, setMfaCode] = useState('');
+  const [emailHint, setEmailHint] = useState('');
+  const [otpTtl, setOtpTtl] = useState(2);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -245,11 +248,24 @@ function Login({ nav, setUser, notify }: { nav: (path: string) => void; setUser:
     setError('');
     try {
       const form = new FormData(event.currentTarget);
-      const response = tempToken
-        ? await API.request<{ accessToken: string; user: User }>('/api/auth/mfa/login', { method: 'POST', body: JSON.stringify({ tempToken, code: mfaCode }) })
-        : await API.request<{ accessToken?: string; user?: User; requiresMfa?: boolean; tempToken?: string }>('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: form.get('username'), password: form.get('password') }) });
+      const response = stage === 'totp'
+        ? await API.request<{ accessToken?: string; user?: User }>('/api/auth/mfa/login', { method: 'POST', body: JSON.stringify({ tempToken, code: mfaCode }) })
+        : stage === 'email'
+          ? await API.request<{ accessToken?: string; user?: User; requiresMfa?: boolean; tempToken?: string }>('/api/auth/email-otp/login', { method: 'POST', body: JSON.stringify({ tempToken, otp: mfaCode }) })
+          : await API.request<{ accessToken?: string; user?: User; requiresEmailOtp?: boolean; requiresMfa?: boolean; tempToken?: string; email?: string; expiresInMinutes?: number; developmentOtp?: string }>('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: form.get('username'), password: form.get('password') }) });
+      if ('requiresEmailOtp' in response && response.requiresEmailOtp && response.tempToken) {
+        setTempToken(response.tempToken);
+        setStage('email');
+        setEmailHint(response.email || 'your email');
+        setOtpTtl(response.expiresInMinutes || 2);
+        setMfaCode('');
+        notify(response.developmentOtp ? `Development OTP: ${response.developmentOtp}` : 'Email OTP sent');
+        return;
+      }
       if ('requiresMfa' in response && response.requiresMfa && response.tempToken) {
         setTempToken(response.tempToken);
+        setStage('totp');
+        setMfaCode('');
         return;
       }
       if (response.accessToken && response.user) {
@@ -264,16 +280,19 @@ function Login({ nav, setUser, notify }: { nav: (path: string) => void; setUser:
       setBusy(false);
     }
   };
+  const challengeLabel = stage === 'email' ? 'Email OTP' : 'TOTP challenge';
+  const challengePlaceholder = stage === 'email' ? `6-digit code sent to ${emailHint}` : '6-digit TOTP or backup code';
   return (
     <AuthSurface mode="access" title="Access security that feels invisible until it matters." subtitle="A calm authentication plane for OS-level identity, MFA enforcement, refresh rotation, and session revocation.">
       <form className="command-form" onSubmit={submit}>
         <label>
-          <span>{tempToken ? 'MFA challenge' : 'Identity'}</span>
-          {tempToken ? <input value={mfaCode} onChange={(e) => setMfaCode(e.target.value)} maxLength={8} placeholder="6-digit TOTP or backup code" /> : <input name="username" maxLength={254} placeholder="username or email" />}
+          <span>{stage !== 'password' ? challengeLabel : 'Identity'}</span>
+          {stage !== 'password' ? <input value={mfaCode} onChange={(e) => setMfaCode(e.target.value)} maxLength={stage === 'email' ? 6 : 8} placeholder={challengePlaceholder} /> : <input name="username" maxLength={254} placeholder="username or email" />}
         </label>
-        {!tempToken && <label><span>Credential</span><input name="password" type="password" maxLength={128} placeholder="password" /></label>}
+        {stage === 'email' && <p className="microcopy">This login code expires in {otpTtl} minutes.</p>}
+        {stage === 'password' && <label><span>Credential</span><input name="password" type="password" maxLength={128} placeholder="password" /></label>}
         <FormError text={error} />
-        <button className="primary-command" disabled={busy}>{busy ? 'Securing...' : tempToken ? 'Verify second factor' : 'Continue'} <ArrowRight size={18} /></button>
+        <button className="primary-command" disabled={busy}>{busy ? 'Securing...' : stage === 'email' ? 'Verify email OTP' : stage === 'totp' ? 'Verify authenticator' : 'Continue'} <ArrowRight size={18} /></button>
         <div className="suggestions"><button type="button" onClick={() => nav('/register')}>Create identity</button><button type="button" onClick={() => nav('/forgot')}>Recover access</button></div>
       </form>
     </AuthSurface>
@@ -383,8 +402,6 @@ function SecurityConsole({ user, setUser, notify }: { user: User | null; setUser
   const [simulation, setSimulation] = useState<DemoSimulation | null>(null);
   const [report, setReport] = useState<SecurityReport | null>(null);
   const [intel, setIntel] = useState<SecurityIntelligence | null>(null);
-  const [emailOtp, setEmailOtp] = useState('');
-  const [emailOtpStatus, setEmailOtpStatus] = useState('');
 
   const reload = async () => {
     const [me, security, sessionBody, intelligence] = await Promise.all([
@@ -450,16 +467,6 @@ function SecurityConsole({ user, setUser, notify }: { user: User | null; setUser
     setReport(response.report);
     notify('Security report generated');
   };
-  const sendEmailOtp = async () => {
-    const response = await API.request<{ sent: boolean; reason?: string; developmentOtp?: string; expiresInMinutes: number }>('/api/user/email-otp/send', { method: 'POST', body: JSON.stringify({ purpose: 'demo_verification' }) });
-    setEmailOtpStatus(response.sent ? `OTP sent. Expires in ${response.expiresInMinutes} minutes.` : `SMTP not configured. Development OTP: ${response.developmentOtp}`);
-  };
-  const verifyEmailOtp = async () => {
-    await API.request('/api/user/email-otp/verify', { method: 'POST', body: JSON.stringify({ otp: emailOtp, purpose: 'demo_verification' }) });
-    setEmailOtp('');
-    setEmailOtpStatus('Email OTP verified and audited.');
-  };
-
   if (!overview || !user) return <SystemTrace title="Loading identity plane" steps={['reading session table', 'scoring posture', 'assembling live stream']} />;
   return (
     <section className="flow-page">
@@ -481,7 +488,7 @@ function SecurityConsole({ user, setUser, notify }: { user: User | null; setUser
         <SessionFlow sessions={sessions} revoke={revoke} />
         <PasswordFlow notify={notify} />
       </section>
-      {intel && <IntelligenceLayer intel={intel} emailOtp={emailOtp} setEmailOtp={setEmailOtp} emailOtpStatus={emailOtpStatus} sendEmailOtp={sendEmailOtp} verifyEmailOtp={verifyEmailOtp} />}
+      {intel && <IntelligenceLayer intel={intel} />}
       <section className="demo-layer">
         <DemoLab scenarios={scenarios} simulation={simulation} runDemo={runDemo} />
         <ReportBrief report={report} loadReport={loadReport} />
@@ -586,14 +593,14 @@ function PasswordFlow({ notify }: { notify: (message: string) => void }) {
   return <FlowSection icon={<KeyRound />} label="Credential hygiene"><form className="inline-form" onSubmit={submit}><input name="currentPassword" type="password" placeholder="Current password" /><input name="password" type="password" placeholder="New password" /><FormError text={error} /><button>Update hash</button></form></FlowSection>;
 }
 
-function IntelligenceLayer({ intel, emailOtp, setEmailOtp, emailOtpStatus, sendEmailOtp, verifyEmailOtp }: { intel: SecurityIntelligence; emailOtp: string; setEmailOtp: (value: string) => void; emailOtpStatus: string; sendEmailOtp: () => void; verifyEmailOtp: () => void }) {
+function IntelligenceLayer({ intel }: { intel: SecurityIntelligence }) {
   const currentTimeline = intel.timeline.length ? intel.timeline[intel.timeline.length - 1] : null;
   return (
     <section className="intelligence-layer">
       <FlowSection icon={<ShieldCheck />} label="Security grade"><div className="grade-mark">{intel.grade.grade}<span>{intel.grade.score}/100</span></div><InsightStream items={intel.checklist.map((item) => [item.done ? 'done' : 'open', `${item.label} - ${item.impact}`])} /></FlowSection>
       <FlowSection icon={<Activity />} label="Risk timeline"><div className="timeline-line">{intel.timeline.slice(-8).map((point) => <span key={`${point.at}-${point.event}`} style={{ height: `${Math.max(12, point.score)}%` }} title={`${point.event}: ${point.score}`} />)}</div><p>{currentTimeline?.event.replace(/_/g, ' ').toLowerCase()} - current score {currentTimeline?.score}</p></FlowSection>
       <FlowSection icon={<Monitor />} label="Device trust">{intel.devices.slice(0, 3).map((device) => <div className="mini-row" key={device.sessionId}><strong>{device.device.browser} on {device.device.os}</strong><span>{device.trust} - {device.score}/100 - {device.ipAddress}</span></div>)}</FlowSection>
-      <FlowSection icon={<KeyRound />} label="Recovery vault"><p>{intel.recoveryVault.backupCodesRemaining} backup codes - {intel.recoveryVault.status}</p><div className="inline-form"><button onClick={sendEmailOtp}>Send email OTP</button><input value={emailOtp} onChange={(event) => setEmailOtp(event.target.value)} maxLength={6} placeholder="Email OTP" /><button onClick={verifyEmailOtp}>Verify OTP</button>{emailOtpStatus && <span>{emailOtpStatus}</span>}</div></FlowSection>
+      <FlowSection icon={<KeyRound />} label="Recovery vault"><p>{intel.recoveryVault.backupCodesRemaining} backup codes - {intel.recoveryVault.status}</p><p>Email OTP is enforced during login and expires after 2 minutes.</p></FlowSection>
     </section>
   );
 }

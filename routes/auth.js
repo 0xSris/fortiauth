@@ -24,6 +24,12 @@ router.post('/login', loginLimiter, validators.login, rejectInvalid, asyncHandle
   res.status(result.status).json(result.body);
 }));
 
+router.post('/email-otp/login', loginLimiter, validators.emailOtpLogin, rejectInvalid, asyncHandler(async (req, res) => {
+  const result = authService.emailOtpLogin(req.body, req);
+  if (result.refreshToken) authService.setRefreshCookie(res, result.refreshToken);
+  res.status(result.status).json(result.body);
+}));
+
 router.post('/mfa/login', loginLimiter, validators.mfaLogin, rejectInvalid, asyncHandler(async (req, res) => {
   try {
     const userId = authService.verifyTempToken(req.body.tempToken);

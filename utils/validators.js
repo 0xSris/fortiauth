@@ -25,6 +25,10 @@ const validators = {
     body('tempToken').isString().isLength({ min: 20, max: 600 }),
     body('code').isString().matches(/^(\d{6}|[A-Z0-9]{8})$/i)
   ],
+  emailOtpLogin: [
+    body('tempToken').isString().isLength({ min: 20, max: 600 }),
+    body('otp').isString().matches(/^\d{6}$/)
+  ],
   resetRequest: [email],
   resetConfirm: [token, passwordRules],
   changePassword: [body('currentPassword').isString().isLength({ min: 1, max: 128 }), passwordRules],

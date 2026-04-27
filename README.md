@@ -46,7 +46,7 @@ The SQLite file is created automatically on first run. The schema is loaded from
 | `ADMIN_EMAIL` | No | Seed admin email. |
 | `ADMIN_PASSWORD` | No | Seed admin password; prompted if omitted. |
 | `GROQ_API_KEY` | No | Enables the AI assistant. |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | No | Enables email OTP delivery. |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` | Production login | Sends 2-minute email OTP login challenges. In development, the OTP is returned in the response when SMTP is not configured. |
 
 ## Production Deployment
 
@@ -73,6 +73,8 @@ This repository is configured for an Express API on Render and a Vite React fron
    ```
 
 The Render start command uses `node --max-old-space-size=256 server.js` and `UV_THREADPOOL_SIZE=2` for free-instance memory safety. The backend install command is `npm ci --omit=dev`, so production does not install development-only packages.
+
+Production login sends an email OTP after the password is accepted. The code expires in 2 minutes. Configure SMTP before presenting the deployed app, otherwise the API will reject login with `EMAIL_OTP_NOT_CONFIGURED`.
 
 SQLite on the free Render plan uses `/tmp/secureos-auth.db`, which is ephemeral. For persistent production data, attach a Render disk or replace SQLite with a managed database.
 
@@ -102,7 +104,8 @@ All request bodies are capped at `10kb`. Validation is enforced with `express-va
 | --- | --- | --- | --- | --- |
 | `GET` | `/health` | No | none | `{ ok, service, env, uptime }` |
 | `POST` | `/api/auth/register` | No | `{ username, email, password, confirmPassword? }` | `{ id, username, email }` |
-| `POST` | `/api/auth/login` | No | `{ username, password }` | `{ accessToken, user, sessionId }` or `{ requiresMfa, tempToken }` |
+| `POST` | `/api/auth/login` | No | `{ username, password }` | `{ requiresEmailOtp, tempToken, email, expiresInMinutes }` |
+| `POST` | `/api/auth/email-otp/login` | Email temp token | `{ tempToken, otp }` | `{ accessToken, user, sessionId }` or `{ requiresMfa, tempToken }` |
 | `POST` | `/api/auth/logout` | User | none | `{ ok }` |
 | `POST` | `/api/auth/refresh` | Refresh cookie | none | `{ accessToken, sessionId }` |
 | `POST` | `/api/auth/mfa/setup` | User | none | `{ secret, qrCodeDataUrl, backupCodes }` |
