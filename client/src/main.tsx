@@ -78,7 +78,8 @@ type Incident = { id: number; type: string; title: string; severity: string; cou
 const fmt = (ts?: number) => (ts ? new Date(ts * 1000).toLocaleString() : 'never');
 const currentRoute = () => (window.location.pathname === '/' ? '/login' : window.location.pathname);
 const auditEvents = ['LOGIN_SUCCESS', 'LOGIN_FAILURE', 'LOGOUT', 'REGISTER', 'MFA_ENABLED', 'MFA_DISABLED', 'MFA_SUCCESS', 'MFA_FAILURE', 'PASSWORD_CHANGED', 'PASSWORD_RESET_REQUEST', 'PASSWORD_RESET_SUCCESS', 'ACCOUNT_LOCKED', 'ACCOUNT_UNLOCKED', 'PRIVILEGE_ESCALATION_ATTEMPT', 'ADMIN_ACTION', 'TOKEN_REFRESH', 'SESSION_REVOKED', 'INVALID_TOKEN_ATTEMPT'];
-const apiBaseUrl = String((import.meta as any).env?.VITE_API_BASE_URL || '').replace(/\/$/, '');
+const deployedApiBaseUrl = window.location.hostname.endsWith('.vercel.app') ? 'https://secureos-api.onrender.com' : '';
+const apiBaseUrl = String((import.meta as any).env?.VITE_API_BASE_URL || deployedApiBaseUrl).replace(/\/$/, '');
 const apiUrl = (path: string) => `${apiBaseUrl}${path}`;
 
 const API = {
