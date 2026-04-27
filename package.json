@@ -1,0 +1,40 @@
+{
+  "name": "secureos-auth-framework",
+  "version": "1.0.0",
+  "description": "Production-grade OS authentication security framework",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "client:dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "seed": "node seed.js"
+  },
+  "dependencies": {
+    "@types/react": "^18.3.28",
+    "@types/react-dom": "^18.3.7",
+    "argon2": "^0.31.2",
+    "better-sqlite3": "^9.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.2.0",
+    "express-validator": "^7.0.1",
+    "framer-motion": "^11.18.2",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "lucide-react": "^0.468.0",
+    "nodemailer": "^6.9.13",
+    "otplib": "^12.0.1",
+    "qrcode": "^1.5.3",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "typescript": "^5.9.3",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.2.1",
+    "nodemon": "^3.1.0",
+    "vite": "^5.1.0"
+  }
+}
