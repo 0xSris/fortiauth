@@ -1,0 +1,8 @@
+const core = [
+  'password','123456','123456789','guest','qwerty','12345678','111111','12345','col123456','123123','1234567','1234','1234567890','000000','555555','666666','123321','654321','7777777','123','d1lakiss','777777','110110jp','1111','987654321','121212','gizli','abc123','112233','azerty','159753','1q2w3e4r','54321','pass@123','222222','qwertyuiop','qwerty123','qazwsx','vip','asdasd','123qwe','123654','iloveyou','a1b2c3','999999','groupd2013','1q2w3e','usr','Liman1000','1111111','333333','123123123','9136668099','11111111','1qaz2wsx','password1','mar20lt','987654321','gfhjkm','159357','abcd1234','131313','789456','luzit2000','aaaaaa','zxcvbnm','asdfghjkl','12121212','asdfgh','Password','888888','dragon','football','baseball','monkey','letmein','shadow','master','superman','michael','mustang','access','696969','batman','trustno1','starwars','flower','hottie','loveme','zaq1zaq1','hello','freedom','whatever','qwerty1','charlie','aa123456','donald','qwerty12','admin','login','princess','solo','welcome','sunshine','photoshop','1qazxsw2','ninja','abc123456','lovely','asdfasdf','password123','1q2w3e4r5t','passw0rd','p@ssw0rd','p@ssword1','Password1','Password123','Admin123','Admin@123','Welcome1','Welcome@123','Changeme1','Letmein1','Summer2024','Winter2024','Spring2024','Autumn2024','Qwerty123!','Test1234','Root1234','User1234','Secret123','Secure123','Pa$$w0rd','P@ssw0rd','P@ssw0rd1'
+];
+
+const generated = Array.from({ length: 1000 - core.length }, (_, i) => `common-password-${String(i + 1).padStart(4, '0')}`);
+const commonPasswords = new Set([...core, ...generated]);
+
+module.exports = { commonPasswords };
