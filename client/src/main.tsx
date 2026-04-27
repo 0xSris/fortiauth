@@ -94,7 +94,12 @@ const API = {
       const refreshed = await API.refresh();
       if (refreshed) return API.request<T>(path, options);
     }
-    if (!response.ok) throw Object.assign(new Error(body.error || 'Request failed'), { body, status: response.status });
+    if (!response.ok) {
+      const detail = Array.isArray(body.details) && body.details[0]
+        ? `${body.details[0].field}: ${body.details[0].message}`
+        : '';
+      throw Object.assign(new Error(detail || body.error || 'Request failed'), { body, status: response.status });
+    }
     return body as T;
   },
   async refresh() {
@@ -284,8 +289,18 @@ function Register({ nav, notify }: { nav: (path: string) => void; notify: (messa
     setError('');
     try {
       const form = new FormData(event.currentTarget);
+      const username = String(form.get('username') || '').trim();
+      const email = String(form.get('email') || '').trim();
+      const nextPassword = String(form.get('password') || '');
+      const confirmPassword = String(form.get('confirmPassword') || '');
+      if (!/^[a-zA-Z0-9_.-]{3,32}$/.test(username)) throw new Error('Username must be 3-32 letters, numbers, dots, dashes, or underscores');
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) throw new Error('Enter a valid email address');
+      if (nextPassword.length < 8 || nextPassword.length > 128) throw new Error('Password must be 8 to 128 characters');
+      if (!/[a-z]/.test(nextPassword) || !/[A-Z]/.test(nextPassword) || !/\d/.test(nextPassword) || !/[^A-Za-z0-9]/.test(nextPassword)) {
+        throw new Error('Password needs uppercase, lowercase, digit, and special character');
+      }
       if (form.get('password') !== form.get('confirmPassword')) throw new Error('Passwords do not match');
-      await API.request('/api/auth/register', { method: 'POST', body: JSON.stringify(Object.fromEntries(form)) });
+      await API.request('/api/auth/register', { method: 'POST', body: JSON.stringify({ username, email, password: nextPassword, confirmPassword }) });
       notify('Identity provisioned');
       nav('/login');
     } catch (err: any) {
