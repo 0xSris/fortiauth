@@ -259,7 +259,7 @@ function Login({ nav, setUser, notify }: { nav: (path: string) => void; setUser:
         setEmailHint(response.email || 'your email');
         setOtpTtl(response.expiresInMinutes || 2);
         setMfaCode('');
-        notify(response.developmentOtp ? `Development OTP: ${response.developmentOtp}` : 'Email OTP sent');
+        notify(response.developmentOtp ? `Development OTP: ${response.developmentOtp}` : 'Email OTP is on its way');
         return;
       }
       if ('requiresMfa' in response && response.requiresMfa && response.tempToken) {
@@ -289,7 +289,7 @@ function Login({ nav, setUser, notify }: { nav: (path: string) => void; setUser:
           <span>{stage !== 'password' ? challengeLabel : 'Identity'}</span>
           {stage !== 'password' ? <input value={mfaCode} onChange={(e) => setMfaCode(e.target.value)} maxLength={stage === 'email' ? 6 : 8} placeholder={challengePlaceholder} /> : <input name="username" maxLength={254} placeholder="username or email" />}
         </label>
-        {stage === 'email' && <p className="microcopy">This login code expires in {otpTtl} minutes.</p>}
+        {stage === 'email' && <p className="microcopy">This login code expires in {otpTtl} minutes. It may take a few seconds to arrive.</p>}
         {stage === 'password' && <label><span>Credential</span><input name="password" type="password" maxLength={128} placeholder="password" /></label>}
         <FormError text={error} />
         <button className="primary-command" disabled={busy}>{busy ? 'Securing...' : stage === 'email' ? 'Verify email OTP' : stage === 'totp' ? 'Verify authenticator' : 'Continue'} <ArrowRight size={18} /></button>

@@ -4,7 +4,7 @@ const { run } = require('../db/database');
 const { randomToken, sha256 } = require('../utils/crypto');
 const { hashPassword, verifyPassword, validatePassword } = require('./passwordService');
 const { audit } = require('./auditService');
-const { createAndSendOtp, verifyOtp } = require('./emailOtpService');
+const { createAndSendOtp, verifyOtp, smtpConfigured } = require('./emailOtpService');
 
 const now = () => Math.floor(Date.now() / 1000);
 const refreshDays = () => Number(process.env.REFRESH_TOKEN_EXPIRES_DAYS || 7);
@@ -67,10 +67,10 @@ async function login({ username, password }, req) {
     if (attempts >= 5) audit({ userId: user.id, eventType: 'ACCOUNT_LOCKED', req, metadata: { username } });
     return { status: attempts >= 5 ? 403 : 401, body: { error: attempts >= 5 ? 'Account locked. Contact admin.' : 'Invalid credentials', code: attempts >= 5 ? 'ACCOUNT_LOCKED' : 'INVALID_CREDENTIALS' } };
   }
-  const emailOtp = await createAndSendOtp(user.id, 'login_challenge', LOGIN_EMAIL_OTP_MINUTES);
-  if (!emailOtp.sent && process.env.NODE_ENV === 'production') {
+  if (!smtpConfigured() && process.env.NODE_ENV === 'production') {
     return { status: 503, body: { error: 'Email OTP delivery is not configured', code: 'EMAIL_OTP_NOT_CONFIGURED' } };
   }
+  const emailOtp = await createAndSendOtp(user.id, 'login_challenge', LOGIN_EMAIL_OTP_MINUTES, { asyncDelivery: process.env.NODE_ENV === 'production' });
   audit({ userId: user.id, eventType: 'MFA_SUCCESS', req, metadata: { factor: 'email_otp_sent', purpose: 'login_challenge' } });
   return {
     status: 200,
