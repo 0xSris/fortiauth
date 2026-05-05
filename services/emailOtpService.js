@@ -15,6 +15,10 @@ function smtpConfigured() {
   return Boolean(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
 }
 
+function demoOtpRevealEnabled() {
+  return process.env.DEMO_SHOW_LOGIN_OTP === 'true';
+}
+
 function getTransporter() {
   if (!transporter) {
     transporter = nodemailer.createTransport({
@@ -62,7 +66,8 @@ async function createAndSendOtp(userId, purpose = 'email_verification', ttlMinut
       sent: true,
       queued: true,
       reason: null,
-      expiresInMinutes: ttl
+      expiresInMinutes: ttl,
+      demoOtp: demoOtpRevealEnabled() && purpose === 'login_challenge' ? otp : undefined
     };
   }
   const delivery = await sendMail(...message);
@@ -70,7 +75,8 @@ async function createAndSendOtp(userId, purpose = 'email_verification', ttlMinut
     sent: delivery.sent,
     reason: delivery.reason || null,
     expiresInMinutes: ttl,
-    developmentOtp: process.env.NODE_ENV === 'production' || delivery.sent ? undefined : otp
+    developmentOtp: process.env.NODE_ENV === 'production' || delivery.sent ? undefined : otp,
+    demoOtp: demoOtpRevealEnabled() && purpose === 'login_challenge' ? otp : undefined
   };
 }
 
@@ -81,4 +87,4 @@ function verifyOtp(userId, otp, purpose = 'email_verification') {
   return true;
 }
 
-module.exports = { createAndSendOtp, verifyOtp, smtpConfigured };
+module.exports = { createAndSendOtp, verifyOtp, smtpConfigured, demoOtpRevealEnabled };

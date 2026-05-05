@@ -200,6 +200,21 @@ h1 {
   background: linear-gradient(90deg, var(--red), var(--amber), var(--green), var(--cyan));
 }
 .microcopy { color: var(--faint); margin: -4px 0 2px; }
+.demo-otp {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--text);
+  background: rgba(125, 211, 252, 0.08);
+  border: 1px solid rgba(125, 211, 252, 0.18);
+  border-radius: 18px;
+  padding: 14px 16px;
+}
+.demo-otp strong {
+  color: var(--cyan);
+  font-family: "JetBrains Mono", Consolas, monospace;
+  letter-spacing: 0.14em;
+}
 .error { color: var(--red); display: flex; align-items: center; gap: 8px; margin: 0; }
 code { font-family: "JetBrains Mono", Consolas, monospace; }
 

@@ -239,6 +239,7 @@ function Login({ nav, setUser, notify }: { nav: (path: string) => void; setUser:
   const [stage, setStage] = useState<'password' | 'email' | 'totp'>('password');
   const [mfaCode, setMfaCode] = useState('');
   const [emailHint, setEmailHint] = useState('');
+  const [demoOtp, setDemoOtp] = useState('');
   const [otpTtl, setOtpTtl] = useState(2);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -252,14 +253,15 @@ function Login({ nav, setUser, notify }: { nav: (path: string) => void; setUser:
         ? await API.request<{ accessToken?: string; user?: User }>('/api/auth/mfa/login', { method: 'POST', body: JSON.stringify({ tempToken, code: mfaCode }) })
         : stage === 'email'
           ? await API.request<{ accessToken?: string; user?: User; requiresMfa?: boolean; tempToken?: string }>('/api/auth/email-otp/login', { method: 'POST', body: JSON.stringify({ tempToken, otp: mfaCode }) })
-          : await API.request<{ accessToken?: string; user?: User; requiresEmailOtp?: boolean; requiresMfa?: boolean; tempToken?: string; email?: string; expiresInMinutes?: number; developmentOtp?: string }>('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: form.get('username'), password: form.get('password') }) });
+          : await API.request<{ accessToken?: string; user?: User; requiresEmailOtp?: boolean; requiresMfa?: boolean; tempToken?: string; email?: string; expiresInMinutes?: number; developmentOtp?: string; demoOtp?: string }>('/api/auth/login', { method: 'POST', body: JSON.stringify({ username: form.get('username'), password: form.get('password') }) });
       if ('requiresEmailOtp' in response && response.requiresEmailOtp && response.tempToken) {
         setTempToken(response.tempToken);
         setStage('email');
         setEmailHint(response.email || 'your email');
         setOtpTtl(response.expiresInMinutes || 2);
+        setDemoOtp(response.demoOtp || response.developmentOtp || '');
         setMfaCode('');
-        notify(response.developmentOtp ? `Development OTP: ${response.developmentOtp}` : 'Email OTP is on its way');
+        notify(response.demoOtp ? 'Demo OTP shown on screen' : response.developmentOtp ? `Development OTP: ${response.developmentOtp}` : 'Email OTP is on its way');
         return;
       }
       if ('requiresMfa' in response && response.requiresMfa && response.tempToken) {
@@ -292,6 +294,7 @@ function Login({ nav, setUser, notify }: { nav: (path: string) => void; setUser:
         {stage === 'email' && <p className="microcopy">This login code expires in {otpTtl} minutes. It may take a few seconds to arrive.</p>}
         {stage === 'password' && <label><span>Credential</span><input name="password" type="password" maxLength={128} placeholder="password" /></label>}
         <FormError text={error} />
+        {stage === 'email' && demoOtp && <div className="demo-otp">Demo OTP <strong>{demoOtp}</strong></div>}
         <button className="primary-command" disabled={busy}>{busy ? 'Securing...' : stage === 'email' ? 'Verify email OTP' : stage === 'totp' ? 'Verify authenticator' : 'Continue'} <ArrowRight size={18} /></button>
         <div className="suggestions"><button type="button" onClick={() => nav('/register')}>Create identity</button><button type="button" onClick={() => nav('/forgot')}>Recover access</button></div>
       </form>

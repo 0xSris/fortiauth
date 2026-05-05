@@ -80,7 +80,8 @@ async function login({ username, password }, req) {
       email: maskEmail(user.email),
       expiresInMinutes: LOGIN_EMAIL_OTP_MINUTES,
       sent: emailOtp.sent,
-      developmentOtp: emailOtp.developmentOtp
+      developmentOtp: emailOtp.developmentOtp,
+      demoOtp: emailOtp.demoOtp
     }
   };
 }
