@@ -60,6 +60,7 @@ async function createAndSendOtp(userId, purpose = 'email_verification', ttlMinut
     'Your SecureOS verification code',
     `Your SecureOS OTP is ${otp}. It expires in ${ttl} minutes. If you did not request this, ignore this email.`
   ];
+  const shouldRevealOtp = options.revealOtp || (demoOtpRevealEnabled() && purpose === 'login_challenge');
   if (options.asyncDelivery && smtpConfigured()) {
     sendMail(...message).catch((error) => logger.error('Email OTP delivery failed', error));
     return {
@@ -67,7 +68,7 @@ async function createAndSendOtp(userId, purpose = 'email_verification', ttlMinut
       queued: true,
       reason: null,
       expiresInMinutes: ttl,
-      demoOtp: demoOtpRevealEnabled() && purpose === 'login_challenge' ? otp : undefined
+      demoOtp: shouldRevealOtp ? otp : undefined
     };
   }
   const delivery = await sendMail(...message);
@@ -76,7 +77,7 @@ async function createAndSendOtp(userId, purpose = 'email_verification', ttlMinut
     reason: delivery.reason || null,
     expiresInMinutes: ttl,
     developmentOtp: process.env.NODE_ENV === 'production' || delivery.sent ? undefined : otp,
-    demoOtp: demoOtpRevealEnabled() && purpose === 'login_challenge' ? otp : undefined
+    demoOtp: shouldRevealOtp ? otp : undefined
   };
 }
 

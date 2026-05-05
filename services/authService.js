@@ -10,6 +10,8 @@ const now = () => Math.floor(Date.now() / 1000);
 const refreshDays = () => Number(process.env.REFRESH_TOKEN_EXPIRES_DAYS || 7);
 const jwtSecret = () => process.env.JWT_SECRET || 'development-jwt-secret-change-me';
 const LOGIN_EMAIL_OTP_MINUTES = 2;
+const DEMO_USERNAME = 'fortiauth_demo';
+const DEMO_EMAIL = 'fortiauth.demo@example.com';
 
 function signAccessToken(userId, sessionId) {
   return jwt.sign({ userId, sessionId }, jwtSecret(), { expiresIn: process.env.JWT_EXPIRES_IN || '15m' });
@@ -86,6 +88,40 @@ async function login({ username, password }, req) {
   };
 }
 
+async function demoLogin(req) {
+  if (process.env.ENABLE_DEMO_LOGIN === 'false') {
+    return { status: 403, body: { error: 'Demo login is disabled', code: 'DEMO_LOGIN_DISABLED' } };
+  }
+  const passwordHash = await hashPassword(`Demo-${randomToken(18)}!1`);
+  run((db) => {
+    const tx = db.transaction(() => {
+      const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(DEMO_USERNAME);
+      if (existing) {
+        db.prepare('UPDATE users SET email = ?, password_hash = ?, failed_attempts = 0, is_locked = 0, updated_at = unixepoch() WHERE id = ?').run(DEMO_EMAIL, passwordHash, existing.id);
+        db.prepare('UPDATE sessions SET is_revoked = 1 WHERE user_id = ?').run(existing.id);
+        return;
+      }
+      db.prepare('INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)').run(DEMO_USERNAME, DEMO_EMAIL, passwordHash);
+    });
+    tx();
+  }, null);
+  const user = run((db) => db.prepare('SELECT * FROM users WHERE username = ?').get(DEMO_USERNAME), null);
+  if (!user) return { status: 500, body: { error: 'Unable to prepare demo account', code: 'DEMO_LOGIN_FAILED' } };
+  const emailOtp = await createAndSendOtp(user.id, 'login_challenge', LOGIN_EMAIL_OTP_MINUTES, { asyncDelivery: false, revealOtp: true });
+  audit({ userId: user.id, eventType: 'MFA_SUCCESS', req, metadata: { factor: 'demo_email_otp', purpose: 'login_challenge' } });
+  return {
+    status: 200,
+    body: {
+      requiresEmailOtp: true,
+      tempToken: signTempToken(user.id, 'email-login'),
+      email: maskEmail(user.email),
+      expiresInMinutes: LOGIN_EMAIL_OTP_MINUTES,
+      sent: false,
+      demoOtp: emailOtp.demoOtp || emailOtp.developmentOtp
+    }
+  };
+}
+
 function completeLogin(user, req) {
   const mfa = run((db) => db.prepare('SELECT is_enabled FROM mfa_configs WHERE user_id = ?').get(user.id), null);
   if (mfa && mfa.is_enabled) return { status: 200, body: { requiresMfa: true, tempToken: signTempToken(user.id) } };
@@ -135,4 +171,4 @@ function clearRefreshCookie(res) {
   res.clearCookie('refreshToken', { httpOnly: true, secure, sameSite, path: '/api/auth' });
 }
 
-module.exports = { register, login, emailOtpLogin, createSession, signAccessToken, verifyTempToken, publicUser, setRefreshCookie, clearRefreshCookie, now };
+module.exports = { register, login, demoLogin, emailOtpLogin, createSession, signAccessToken, verifyTempToken, publicUser, setRefreshCookie, clearRefreshCookie, now };

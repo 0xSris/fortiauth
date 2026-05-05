@@ -243,6 +243,24 @@ function Login({ nav, setUser, notify }: { nav: (path: string) => void; setUser:
   const [otpTtl, setOtpTtl] = useState(2);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const startDemo = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const response = await API.request<{ requiresEmailOtp: boolean; tempToken: string; email?: string; expiresInMinutes?: number; demoOtp?: string }>('/api/auth/demo-login', { method: 'POST' });
+      setTempToken(response.tempToken);
+      setStage('email');
+      setEmailHint(response.email || 'demo account');
+      setOtpTtl(response.expiresInMinutes || 2);
+      setDemoOtp(response.demoOtp || '');
+      setMfaCode('');
+      notify('Demo account ready');
+    } catch (err: any) {
+      setError(err.body?.error || err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setBusy(true);
@@ -296,7 +314,7 @@ function Login({ nav, setUser, notify }: { nav: (path: string) => void; setUser:
         <FormError text={error} />
         {stage === 'email' && demoOtp && <div className="demo-otp">Demo OTP <strong>{demoOtp}</strong></div>}
         <button className="primary-command" disabled={busy}>{busy ? 'Securing...' : stage === 'email' ? 'Verify email OTP' : stage === 'totp' ? 'Verify authenticator' : 'Continue'} <ArrowRight size={18} /></button>
-        <div className="suggestions"><button type="button" onClick={() => nav('/register')}>Create identity</button><button type="button" onClick={() => nav('/forgot')}>Recover access</button></div>
+        <div className="suggestions"><button type="button" onClick={startDemo}>Launch demo access</button><button type="button" onClick={() => nav('/register')}>Create identity</button><button type="button" onClick={() => nav('/forgot')}>Recover access</button></div>
       </form>
     </AuthSurface>
   );

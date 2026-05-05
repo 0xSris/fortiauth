@@ -44,6 +44,7 @@ The SQLite file is created automatically on first run. The schema is loaded from
 | `REFRESH_COOKIE_SAMESITE` | No | Refresh cookie SameSite value. Use `none` for Vercel-to-Render cross-site deployment. |
 | `REFRESH_COOKIE_SECURE` | No | Set to `true` in production so refresh cookies are HTTPS-only. |
 | `DEMO_SHOW_LOGIN_OTP` | No | Set to `true` only for class demos to reveal the 2-minute login OTP on screen. |
+| `ENABLE_DEMO_LOGIN` | No | Enables the login-page demo access button. Set to `false` after presentation. |
 | `ADMIN_EMAIL` | No | Seed admin email. |
 | `ADMIN_PASSWORD` | No | Seed admin password; prompted if omitted. |
 | `GROQ_API_KEY` | No | Enables the AI assistant. |
@@ -78,6 +79,8 @@ The Render start command uses `node --max-old-space-size=256 server.js` and `UV_
 Production login sends an email OTP after the password is accepted. The code expires in 2 minutes. Configure SMTP before presenting the deployed app, otherwise the API will reject login with `EMAIL_OTP_NOT_CONFIGURED`.
 
 For a controlled class demo, set `DEMO_SHOW_LOGIN_OTP=true` in Render and redeploy. This reveals the login OTP on screen while keeping the OTP verification flow active. Turn it off after the demo.
+
+The login page also includes a demo access button when `ENABLE_DEMO_LOGIN` is not set to `false`. It prepares a temporary demo identity and shows the same OTP challenge flow without relying on email delivery.
 
 SQLite on the free Render plan uses `/tmp/secureos-auth.db`, which is ephemeral. For persistent production data, attach a Render disk or replace SQLite with a managed database.
 

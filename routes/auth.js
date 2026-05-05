@@ -24,6 +24,11 @@ router.post('/login', loginLimiter, validators.login, rejectInvalid, asyncHandle
   res.status(result.status).json(result.body);
 }));
 
+router.post('/demo-login', loginLimiter, asyncHandler(async (req, res) => {
+  const result = await authService.demoLogin(req);
+  res.status(result.status).json(result.body);
+}));
+
 router.post('/email-otp/login', loginLimiter, validators.emailOtpLogin, rejectInvalid, asyncHandler(async (req, res) => {
   const result = authService.emailOtpLogin(req.body, req);
   if (result.refreshToken) authService.setRefreshCookie(res, result.refreshToken);
